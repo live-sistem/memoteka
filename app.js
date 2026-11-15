@@ -80,35 +80,82 @@ const MEMES = [
   },
 ];
 
-const STORAGE_KEY = "memoteka:likes:v1";
+/*
+ * Общие лайки через бесплатный Abacus API (без регистрации, CORS открыт).
+ * Счётчик умеет только +1, поэтому лайк одноразовый: один посетитель = один лайк.
+ * localStorage хранит лишь «я уже лайкнул», а число — общее для всех.
+ */
+const API = {
+  base: "https://abacus.jasoncameron.dev",
+  ns: "memoteka-live-sistem-2026",
+};
+
+const STORAGE_KEY = "memoteka:mylikes:v2";
+const COUNT_CACHE_KEY = "memoteka:counts:v2";
 
 const state = {
   query: "",
   tag: "all",
   sort: "default",
-  likes: loadLikes(),
+  myLikes: loadJSON(STORAGE_KEY, {}),
+  counts: loadJSON(COUNT_CACHE_KEY, {}),
+  online: false,
 };
 
 /* ── хранилище ── */
-function loadLikes() {
+function loadJSON(key, fallback) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return {};
+    return fallback;
   }
 }
 
-function saveLikes() {
+function saveJSON(key, value) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.likes));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* приватный режим — просто не сохраняем */
   }
 }
 
-const likeCount = (id) => Number(state.likes[id]) || 0;
+const likeCount = (id) => Number(state.counts[id]) || 0;
 const totalLikes = () => MEMES.reduce((sum, m) => sum + likeCount(m.id), 0);
+
+/* ── API ── */
+async function apiFetch(path) {
+  const res = await fetch(`${API.base}${path}`, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function loadCounts() {
+  const results = await Promise.allSettled(
+    MEMES.map((m) => apiFetch(`/get/${API.ns}/${m.id}`)),
+  );
+
+  let any = false;
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled" && typeof r.value?.value === "number") {
+      state.counts[MEMES[i].id] = r.value.value;
+      any = true;
+    }
+  });
+
+  state.online = any;
+  if (any) saveJSON(COUNT_CACHE_KEY, state.counts);
+  render();
+}
+
+async function sendLike(id) {
+  const data = await apiFetch(`/hit/${API.ns}/${id}`);
+  if (typeof data?.value === "number") {
+    state.counts[id] = data.value;
+    return data.value;
+  }
+  return null;
+}
 
 /* ── элементы ── */
 const $ = (sel) => document.querySelector(sel);
@@ -166,9 +213,10 @@ function render() {
     .map(
       (m, i) => `
       <article class="card" data-id="${m.id}" style="animation-delay:${Math.min(i * 45, 400)}ms">
-        <button class="like${likeCount(m.id) > 0 ? " is-liked" : ""}" data-like="${m.id}" type="button"
+        <button class="like${state.myLikes[m.id] ? " is-liked" : ""}" data-like="${m.id}" type="button"
+                title="${state.myLikes[m.id] ? "Ты уже лайкнул" : "Поставить лайк — он общий для всех"}"
                 aria-label="Лайкнуть ${m.title}">
-          <span aria-hidden="true">${likeCount(m.id) > 0 ? "♥" : "♡"}</span>
+          <span aria-hidden="true">${state.myLikes[m.id] ? "♥" : "♡"}</span>
           <span class="like-count">${likeCount(m.id)}</span>
         </button>
         <div class="card-media">
@@ -193,34 +241,61 @@ function updateStats() {
   $("#statLikes").textContent = totalLikes();
 }
 
-/* ── лайки ── */
+/* ── лайки (общие) ── */
 gallery.addEventListener("click", (e) => {
   const likeBtn = e.target.closest("[data-like]");
   if (likeBtn) {
     e.stopPropagation();
-    toggleLike(likeBtn);
+    likeMeme(likeBtn);
     return;
   }
   const card = e.target.closest(".card");
   if (card) openLightbox(card.dataset.id);
 });
 
-function toggleLike(btn) {
+async function likeMeme(btn) {
   const id = btn.dataset.like;
-  const next = likeCount(id) > 0 ? 0 : likeCount(id) + 1;
-  state.likes[id] = next;
-  saveLikes();
 
-  btn.classList.toggle("is-liked", next > 0);
-  btn.querySelector("span").textContent = next > 0 ? "♥" : "♡";
-  btn.querySelector(".like-count").textContent = next;
+  if (state.myLikes[id]) {
+    toast("Ты уже лайкнул этот мем ♥");
+    btn.classList.remove("pop");
+    void btn.offsetWidth;
+    btn.classList.add("pop");
+    return;
+  }
 
+  // оптимистично: сразу +1, потом сверяемся с сервером
+  state.counts[id] = likeCount(id) + 1;
+  state.myLikes[id] = true;
+  saveJSON(STORAGE_KEY, state.myLikes);
+  saveJSON(COUNT_CACHE_KEY, state.counts);
+  paintLike(btn, id);
+
+  try {
+    const value = await sendLike(id);
+    if (value !== null) {
+      state.counts[id] = value;
+      saveJSON(COUNT_CACHE_KEY, state.counts);
+      paintLike(btn, id);
+      toast("Лайк учтён — теперь он общий ♥");
+    } else {
+      toast("Лайк сохранён локально (сервер не ответил)");
+    }
+  } catch {
+    state.online = false;
+    toast("Лайк сохранён локально — сервер недоступен");
+  }
+}
+
+function paintLike(btn, id) {
+  btn.classList.add("is-liked");
+  btn.querySelector("span").textContent = "♥";
+  btn.querySelector(".like-count").textContent = likeCount(id);
+  btn.title = "Ты уже лайкнул";
   btn.classList.remove("pop");
   void btn.offsetWidth;
   btn.classList.add("pop");
-
   updateStats();
-  toast(next > 0 ? "Лайк сохранён ♥" : "Лайк убран");
 }
 
 /* ── лайтбокс ── */
@@ -316,3 +391,5 @@ function toast(msg) {
 /* ── старт ── */
 renderChips();
 render();
+loadCounts();
+setInterval(loadCounts, 60000); // подтягивать общие лайки раз в минуту
