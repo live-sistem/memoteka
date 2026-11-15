@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="МЕМОТЕКА — интерактивный музей мемов: коллекция, поиск, теги и лайки." />
+  <title>МЕМОТЕКА — музей интернет-фольклора</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="hero">
+    <div class="badge"><span class="dot"></span> коллекция · 2026</div>
+    <h1>МЕМО<span class="accent">ТЕКА</span></h1>
+    <p class="sub">
+      Музей интернет-фольклора. Одиннадцать классических шаблонов, лайки,
+      поиск и полный хаос в комментариях.
+    </p>
+    <div class="hero-actions">
+      <button class="btn primary" id="randomBtn" type="button">
+        <span>🎲</span> Случайный мем
+      </button>
+      <a class="btn ghost" href="#gallery">Смотреть коллекцию</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="statMemes">0</b><span>мемов</span></div>
+      <div class="stat"><b id="statTags">0</b><span>тегов</span></div>
+      <div class="stat"><b id="statLikes">0</b><span>лайков</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="search">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="search" type="search" placeholder="Поиск: дракон, дедлайн, прод…" autocomplete="off" />
+        <kbd>/</kbd>
+      </div>
+
+      <div class="chips" id="chips" role="group" aria-label="Фильтр по тегам"></div>
+
+      <div class="sort" id="sort" role="group" aria-label="Сортировка">
+        <button class="chip is-active" data-sort="default" type="button">Как в музее</button>
+        <button class="chip" data-sort="likes" type="button">По лайкам</button>
+        <button class="chip" data-sort="az" type="button">А–Я</button>
+      </div>
+    </section>
+
+    <section class="grid" id="gallery" aria-live="polite"></section>
+
+    <p class="empty" id="empty" hidden>
+      <span>🫥</span> Ничего не нашлось. Попробуй другой запрос.
+    </p>
+  </main>
+
+  <footer class="footer">
+    <p>Сделано на чистом HTML/CSS/JS. Шаблоны — <a href="https://imgflip.com" target="_blank" rel="noreferrer">imgflip</a>.</p>
+    <p class="hint">Горячие клавиши: <kbd>/</kbd> поиск · <kbd>R</kbd> случайный · <kbd>Esc</kbd> закрыть</p>
+  </footer>
+
+  <div class="lightbox" id="lightbox" hidden>
+    <button class="lb-close" id="lbClose" type="button" aria-label="Закрыть">✕</button>
+    <figure class="lb-figure">
+      <img id="lbImg" alt="" />
+      <figcaption>
+        <h2 id="lbTitle"></h2>
+        <p id="lbCaption"></p>
+        <div class="lb-tags" id="lbTags"></div>
+      </figcaption>
+    </figure>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
