@@ -2,6 +2,14 @@
 
 const MEMES = [
   {
+    id: "call",
+    file: "assets/call.png",
+    title: "Созвон, который можно было не проводить",
+    caption: "Камера включилась сама. Ты не готов. Все всё видели.",
+    tags: ["работа", "созвон"],
+    portrait: true,
+  },
+  {
     id: "drake",
     file: "assets/drake.jpg",
     title: "Программист и документация",
@@ -219,7 +227,7 @@ function render() {
           <span aria-hidden="true">${state.myLikes[m.id] ? "♥" : "♡"}</span>
           <span class="like-count">${likeCount(m.id)}</span>
         </button>
-        <div class="card-media">
+        <div class="card-media${m.portrait ? " portrait" : ""}">
           <img src="${m.file}" alt="${m.title}" loading="lazy" />
         </div>
         <div class="card-body">
